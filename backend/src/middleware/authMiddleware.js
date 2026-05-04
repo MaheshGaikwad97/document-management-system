@@ -1,58 +1,54 @@
 const jwt = require("jsonwebtoken");
-const Employee = require("../models/Employee");
 
-const protect = async (req, res, next) => {
-  try {
-    let token = null;
+// 🔐 Protect Middleware (Check Token)
+const protect = (req, res, next) => {
+  let token;
 
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer ")
-    ) {
+  console.log("AUTH HEADER:", req.headers.authorization); // DEBUG
+
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    try {
+      // Extract token
       token = req.headers.authorization.split(" ")[1];
-    }
 
-    if (!token) {
+      // Verify token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      console.log("DECODED USER:", decoded); // DEBUG
+
+      // Attach user data to request
+      req.user = decoded;
+
+      next();
+    } catch (error) {
+      console.log("JWT ERROR:", error.message);
+
       return res.status(401).json({
-        message: "Not authorized, token missing",
+        message: "Not authorized",
+        error: error.message,
       });
     }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    const employee = await Employee.findById(decoded.id).select("-password");
-
-    if (!employee) {
-      return res.status(401).json({
-        message: "User not found",
-      });
-    }
-
-    req.employee = employee;
-
-    next();
-  } catch (error) {
+  } else {
     return res.status(401).json({
-      message: "Not authorized, invalid token",
-      error: error.message,
+      message: "No token provided",
     });
   }
 };
 
+// 🔒 Admin Only Middleware
 const adminOnly = (req, res, next) => {
-  if (!req.employee) {
-    return res.status(401).json({
-      message: "Not authorized, employee data missing",
-    });
-  }
+  console.log("USER IN ADMIN CHECK:", req.user); // DEBUG
 
-  if (req.employee.role !== "admin") {
+  if (req.user && req.user.role === "admin") {
+    next();
+  } else {
     return res.status(403).json({
-      message: "Access denied. Admin only",
+      message: "Admin access only",
     });
   }
-
-  next();
 };
 
 module.exports = { protect, adminOnly };

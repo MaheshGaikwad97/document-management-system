@@ -4,22 +4,20 @@ const router = express.Router();
 const upload = require("../middleware/uploadMiddleware");
 const { protect, adminOnly } = require("../middleware/authMiddleware");
 
-// Upload route (IMPORTANT: upload comes first)
+// Correct order
 router.post(
   "/",
-  upload.single("file"),
   protect,
   adminOnly,
+  upload.single("file"),
   (req, res) => {
     try {
-      // Check if file exists
       if (!req.file) {
         return res.status(400).json({
           message: "No file uploaded",
         });
       }
 
-      // Success response
       return res.status(200).json({
         message: "File uploaded successfully",
         file: {
