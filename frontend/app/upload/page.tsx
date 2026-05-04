@@ -95,3 +95,4 @@ export default function UploadPage() {
     setMessage(err.message);
   }
 };
+}
