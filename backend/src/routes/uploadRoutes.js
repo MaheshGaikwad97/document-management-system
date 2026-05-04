@@ -4,7 +4,6 @@ const router = express.Router();
 const upload = require("../middleware/uploadMiddleware");
 const { protect, adminOnly } = require("../middleware/authMiddleware");
 
-// Correct order
 router.post(
   "/",
   protect,
@@ -12,6 +11,19 @@ router.post(
   upload.single("file"),
   (req, res) => {
     try {
+      console.log("BODY:", req.body); // DEBUG
+      console.log("FILE:", req.file); // DEBUG
+
+      const { title, category } = req.body;
+
+      // ✅ Check title & category
+      if (!title || !category) {
+        return res.status(400).json({
+          message: "Title and category are required",
+        });
+      }
+
+      // ✅ Check file
       if (!req.file) {
         return res.status(400).json({
           message: "No file uploaded",
@@ -20,11 +32,10 @@ router.post(
 
       return res.status(200).json({
         message: "File uploaded successfully",
-        file: {
+        data: {
+          title,
+          category,
           filename: req.file.filename,
-          originalname: req.file.originalname,
-          mimetype: req.file.mimetype,
-          size: req.file.size,
           path: `/uploads/${req.file.filename}`,
         },
       });
