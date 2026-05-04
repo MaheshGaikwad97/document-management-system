@@ -1,75 +1,22 @@
 const express = require("express");
 const router = express.Router();
 
-const multer = require("multer");
-const path = require("path");
-
-const Document = require("../models/Document");
+const upload = require("../middleware/uploadMiddleware");
 const { protect, adminOnly } = require("../middleware/authMiddleware");
+const Document = require("../models/Document");
 
 
-// =======================
-// CREATE UPLOAD FOLDER SAFE
-// =======================
-const fs = require("fs");
-
-const uploadPath = "uploads/documents";
-
-if (!fs.existsSync(uploadPath)) {
-  fs.mkdirSync(uploadPath, { recursive: true });
-}
-
-
-// =======================
-// MULTER CONFIG
-// =======================
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueName =
-      Date.now() + "-" + file.originalname.replace(/\s+/g, "_");
-    cb(null, uniqueName);
-  },
-});
-
-// safer file filter
-const fileFilter = (req, file, cb) => {
-  if (
-    file.mimetype === "application/pdf" ||
-    file.originalname.endsWith(".pdf")
-  ) {
-    cb(null, true);
-  } else {
-    cb(new Error("Only PDF files are allowed"), false);
-  }
-};
-
-const upload = multer({
-  storage,
-  fileFilter,
-});
-
-
-// =======================
-// UPLOAD ROUTE
-// =======================
-
+// ✅ 1. Upload Document
 router.post(
   "/",
-  upload.single("file"),
   protect,
-  
+  adminOnly,
+  upload.single("file"),
   async (req, res) => {
     try {
-      console.log("BODY:", req.body);
-      console.log("FILE:", req.file);
+      const { title, category } = req.body;
 
-      const title = req.body?.title;
-      const category = req.body?.category;
-
+      // Validate fields
       if (!title || !category) {
         return res.status(400).json({
           message: "Title and category are required",
@@ -78,56 +25,49 @@ router.post(
 
       if (!req.file) {
         return res.status(400).json({
-          message: "No file uploaded or invalid file type",
+          message: "No file uploaded",
         });
       }
 
+      // Save to DB
       const newDoc = await Document.create({
         title,
         category,
-        filePath: req.file.path,
-        fileName: req.file.filename,
+        filePath: `uploads/${req.file.filename}`,
       });
 
-      return res.status(201).json({
+      res.status(201).json({
         message: "Document uploaded successfully",
-        data: newDoc,
+        document: newDoc,
       });
 
     } catch (error) {
       console.error("Upload Error:", error);
 
-      return res.status(500).json({
-        message: "Server error",
-        error: error.message,
+      res.status(500).json({
+        message: "Server error during upload",
       });
     }
   }
 );
 
 
-// =======================
-// GET ALL DOCUMENTS
-// =======================
-
+// ✅ 2. Get All Documents
 router.get("/", async (req, res) => {
   try {
-    const docs = await Document.find().sort({ createdAt: -1 });
+    const documents = await Document.find().sort({ createdAt: -1 });
 
-    res.status(200).json(docs);
+    res.status(200).json(documents);
+
   } catch (error) {
     res.status(500).json({
-      message: "Error fetching documents",
-      error: error.message,
+      message: "Server error",
     });
   }
 });
 
 
-// =======================
-// DELETE DOCUMENT
-// =======================
-
+// ✅ 3. Delete Document
 router.delete("/:id", protect, adminOnly, async (req, res) => {
   try {
     const doc = await Document.findById(req.params.id);
@@ -143,14 +83,34 @@ router.delete("/:id", protect, adminOnly, async (req, res) => {
     res.status(200).json({
       message: "Document deleted successfully",
     });
+
   } catch (error) {
     res.status(500).json({
-      message: "Error deleting document",
-      error: error.message,
+      message: "Server error",
     });
   }
 });
 
 
-// EXPORT
+// ✅ 4. Get Single Document (Optional but professional)
+router.get("/:id", async (req, res) => {
+  try {
+    const doc = await Document.findById(req.params.id);
+
+    if (!doc) {
+      return res.status(404).json({
+        message: "Document not found",
+      });
+    }
+
+    res.status(200).json(doc);
+
+  } catch (error) {
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
+
 module.exports = router;

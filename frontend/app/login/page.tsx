@@ -3,70 +3,94 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function Login() {
+export default function LoginPage() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      alert("Enter email and password");
-      return;
-    }
+  const handleLogin = async (e: any) => {
+    e.preventDefault();
+
+    setLoading(true);
+    setError("");
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      const res = await fetch(
+        "https://document-management-system-h6os.onrender.com/api/auth/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            password,
+          }),
+        }
+      );
 
       const data = await res.json();
 
-      if (res.ok) {
-        localStorage.setItem("token", data.token); // ✅ save token
-        alert("Login successful");
-
-        router.push("/"); // redirect to dashboard
-      } else {
-        alert(data.message);
+      if (!res.ok) {
+        throw new Error(data.message || "Login failed");
       }
-    } catch (error) {
-      alert("Server error");
+
+      // ✅ Save token
+      localStorage.setItem("token", data.token);
+
+      // ✅ Redirect after login
+      router.push("/upload");
+
+    } catch (err: any) {
+      setError(err.message);
     }
+
+    setLoading(false);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-6 rounded shadow w-80">
-        <h2 className="text-xl font-bold mb-4">Admin Login</h2>
+      <form
+        onSubmit={handleLogin}
+        className="bg-white p-8 rounded-2xl shadow-md w-full max-w-md"
+      >
+        <h2 className="text-2xl font-bold mb-6 text-center">
+          Admin Login
+        </h2>
+
+        {error && (
+          <p className="text-red-500 text-sm mb-4">{error}</p>
+        )}
 
         <input
           type="email"
           placeholder="Email"
-          className="border p-2 w-full mb-3"
+          className="w-full mb-4 p-3 border rounded-lg"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          required
         />
 
         <input
           type="password"
           placeholder="Password"
-          className="border p-2 w-full mb-3"
+          className="w-full mb-4 p-3 border rounded-lg"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          required
         />
 
         <button
-          onClick={handleLogin}
-          className="bg-blue-600 text-white w-full py-2 rounded"
+          type="submit"
+          className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700"
+          disabled={loading}
         >
-          Login
+          {loading ? "Logging in..." : "Login"}
         </button>
-      </div>
+      </form>
     </div>
   );
 }
