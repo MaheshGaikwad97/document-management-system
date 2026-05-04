@@ -12,9 +12,7 @@ export default function UploadPage() {
   const [message, setMessage] = useState("");
   const [documents, setDocuments] = useState<any[]>([]);
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
-  // 🔥 Fetch documents
+  // Fetch documents
   const fetchDocuments = async () => {
     try {
       const res = await fetch(
@@ -32,67 +30,101 @@ export default function UploadPage() {
   }, []);
 
   const handleUpload = async (e: any) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token");
 
-  if (!token) {
-    router.push("/login");
-    return;
-  }
+    if (!token) {
+      router.push("/login");
+      return;
+    }
 
-  if (!file || !title || !category) {
-    setMessage("All fields are required");
-    return;
-  }
+    if (!file || !title || !category) {
+      setMessage("All fields are required");
+      return;
+    }
 
-  const formData = new FormData();
-  formData.append("file", file as Blob);
-  formData.append("title", title);
-  formData.append("category", category);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("title", title);
+    formData.append("category", category);
 
-  try {
-    setMessage("Uploading...");
-
-    const res = await fetch(
-      "https://document-management-system-h6os.onrender.com/api/documents",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      }
-    );
-
-    // 🔥 READ RESPONSE SAFELY
-    const text = await res.text();
-    console.log("RAW RESPONSE:", text);
-
-    let data;
     try {
-      data = JSON.parse(text);
-    } catch {
-      throw new Error("Server returned HTML instead of JSON (check backend)");
+      setMessage("Uploading...");
+
+      const res = await fetch(
+        "https://document-management-system-h6os.onrender.com/api/documents",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      const text = await res.text();
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("Server returned invalid response (not JSON)");
+      }
+
+      if (!res.ok) {
+        throw new Error(data.message || "Upload failed");
+      }
+
+      setMessage("File uploaded successfully ✅");
+
+      setFile(null);
+      setTitle("");
+      setCategory("");
+
+      fetchDocuments();
+    } catch (err: any) {
+      setMessage(err.message);
     }
+  };
 
-    if (!res.ok) {
-      throw new Error(data.message || "Upload failed");
-    }
+  return (
+    <div style={{ padding: 20 }}>
+      <h2>Upload Document</h2>
 
-    // ✅ SUCCESS
-    setMessage("File uploaded successfully ✅");
+      <form onSubmit={handleUpload}>
+        <input
+          type="text"
+          placeholder="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
 
-    // Reset form
-    setFile(null);
-    setTitle("");
-    setCategory("");
+        <input
+          type="text"
+          placeholder="Category"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+        />
 
-    // Refresh list
-    fetchDocuments();
+        <input
+          type="file"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+        />
 
-  } catch (err: any) {
-    setMessage(err.message);
-  }
-};
+        <button type="submit">Upload</button>
+      </form>
+
+      <p>{message}</p>
+
+      <h3>Documents</h3>
+      <ul>
+        {documents.map((doc, i) => (
+          <li key={i}>
+            {doc.title} - {doc.category}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
